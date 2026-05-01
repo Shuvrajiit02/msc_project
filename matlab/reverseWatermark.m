@@ -65,9 +65,17 @@ for p = 1:length(Pinfo)
     val = block(coeffIdx);
 
     % =====================================================
-    % ? REVERSE ORIGINAL MULTIPLICATIVE EMBEDDING
+    % ? REVERSE QIM-INSPIRED EMBEDDING
     % =====================================================
-    block(coeffIdx) = val / params.embedFactor;
+    threshold = 0.3;
+    
+    if abs(val) < threshold
+        % It was bit=0 (divided), so we multiply to restore
+        block(coeffIdx) = val * params.embedFactor;
+    else
+        % It was bit=1 (multiplied), so we divide to restore
+        block(coeffIdx) = val / params.embedFactor;
+    end
 
     dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
 

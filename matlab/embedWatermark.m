@@ -71,13 +71,13 @@ for b = 1:numBits
 
                     val = midCoeffs(k);
 
-                    % ? FIXED THRESHOLDS FOR Cb CHANNEL LOW VARIANCE
-                    if bit == 0 && abs(val) > 0.2 && abs(val) <= 1.0
-                        newVal = val * params.embedFactor;
-
-                    elseif bit == 1 && abs(val) > 1.2 && abs(val) <= 2.0
-                        newVal = val * params.embedFactor;
-
+                    % ? QIM-INSPIRED ROBUST EMBEDDING
+                    if abs(val) > 0.1 && abs(val) <= 0.2
+                        if bit == 0
+                            newVal = val / params.embedFactor;
+                        else
+                            newVal = val * params.embedFactor;
+                        end
                     else
                         continue;
                     end

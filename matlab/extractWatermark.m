@@ -69,16 +69,16 @@ for p = 1:numEntries
     val_abs = abs(val);
 
     % =====================================================
-    % ? MATCH NEW LOW-VARIANCE THRESHOLDS
+    % ? ROBUST EXTRACTION FOR QIM-INSPIRED METHOD
     % =====================================================
-    if val_abs >= 1.0 && val_abs <= 5.5
+    % Bit 0 was divided, making it very close to 0.
+    % Bit 1 was multiplied, making it much larger.
+    threshold = 0.3; % Safe midpoint
+    
+    if val_abs < threshold
         bit = 0;
-
-    elseif val_abs > 5.5 && val_abs <= 12.0
-        bit = 1;
-
     else
-        continue;
+        bit = 1;
     end
 
     rawBits(end+1)   = bit;
