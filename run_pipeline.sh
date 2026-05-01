@@ -28,6 +28,15 @@ cd x264_modified
 ./x264 \
 --input-res 352x288 \
 --fps 25 \
+--ref 1 \
+--partitions none \
+--bframes 0 \
+--weightp 0 \
+--me dia \
+--subme 0 \
+--no-cabac \
+--no-fast-pskip \
+--trellis 0 \
 -o ../videos/encoded/watermarked.264 \
 ../videos/input/input.yuv
 cd ..
