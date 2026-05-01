@@ -25,6 +25,10 @@ for p = 1:length(Pinfo)
         continue;
     end
 
+    if blockID < 1 || coeffIdx < 1
+        continue;
+    end
+
     % Channel
     if strcmpi(params.channel, 'Cb')
         channel = double(recoveredVideo(iFrame).Cb);
@@ -54,7 +58,7 @@ for p = 1:length(Pinfo)
 
     block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
 
-    if coeffIdx > numel(block)
+    if blockID < 1 || coeffIdx < 1 || coeffIdx > numel(block)
         continue;
     end
 
