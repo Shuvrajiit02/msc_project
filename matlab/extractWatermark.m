@@ -69,13 +69,12 @@ for p = 1:numEntries
     val_abs = abs(val);
 
     % =====================================================
-    % ? MATCH ORIGINAL RANGE-BASED EMBEDDING
+    % ? MATCH NEW LOW-VARIANCE THRESHOLDS
     % =====================================================
-    if val_abs >= (0.5 * params.embedFactor) && val_abs <= (5.5 * params.embedFactor)
+    if val_abs >= 1.0 && val_abs <= 5.5
         bit = 0;
 
-    elseif val_abs > (5.5 * params.embedFactor) && ...
-           val_abs <= (12 * params.embedFactor)
+    elseif val_abs > 5.5 && val_abs <= 12.0
         bit = 1;
 
     else

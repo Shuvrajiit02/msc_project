@@ -71,11 +71,11 @@ for b = 1:numBits
 
                     val = midCoeffs(k);
 
-                    % ? FIXED THRESHOLDS (REALISTIC DCT RANGE WITH SAFE GAP)
-                    if bit == 0 && abs(val) > 1 && abs(val) <= 4
+                    % ? FIXED THRESHOLDS FOR Cb CHANNEL LOW VARIANCE
+                    if bit == 0 && abs(val) > 0.2 && abs(val) <= 1.0
                         newVal = val * params.embedFactor;
 
-                    elseif bit == 1 && abs(val) > 7 && abs(val) <= 10
+                    elseif bit == 1 && abs(val) > 1.2 && abs(val) <= 2.0
                         newVal = val * params.embedFactor;
 
                     else
