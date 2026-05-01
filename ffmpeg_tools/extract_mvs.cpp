@@ -45,12 +45,14 @@ int main(int argc, char *argv[]) {
 
     std::ofstream outfile("data/mvs.txt");
 
+    int frame_num = 0;
     while (av_read_frame(fmt_ctx, &pkt) >= 0) {
         if (pkt.stream_index == video_stream_index) {
 
             avcodec_send_packet(dec_ctx, &pkt);
 
             while (avcodec_receive_frame(dec_ctx, frame) == 0) {
+                frame_num++;
 
                 AVFrameSideData *sd =
                     av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
@@ -62,8 +64,14 @@ int main(int argc, char *argv[]) {
                     int mv_count = sd->size / sizeof(*mvs);
 
                     for (int i = 0; i < mv_count; i++) {
-                        outfile << mvs[i].motion_x << " "
-                                << mvs[i].motion_y << "\n";
+                        // Only extract 16x16 blocks (matching x264 embedding)
+                        if (mvs[i].w == 16 && mvs[i].h == 16) {
+                            outfile << frame_num << " "
+                                    << mvs[i].dst_x << " "
+                                    << mvs[i].dst_y << " "
+                                    << mvs[i].motion_x << " "
+                                    << mvs[i].motion_y << "\n";
+                        }
                     }
                 }
             }
