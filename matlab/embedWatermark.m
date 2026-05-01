@@ -72,10 +72,10 @@ for b = 1:numBits
                     val = midCoeffs(k);
 
                     % ? FIXED THRESHOLDS (REALISTIC DCT RANGE)
-                    if bit == 0 && abs(val) > 1 && abs(val) <= 10
+                    if bit == 0 && abs(val) > 1 && abs(val) <= 5
                         newVal = val * params.embedFactor;
 
-                    elseif bit == 1 && abs(val) > 10 && abs(val) <= 20
+                    elseif bit == 1 && abs(val) > 5 && abs(val) <= 10
                         newVal = val * params.embedFactor;
 
                     else

@@ -34,9 +34,9 @@ for p = 1:numEntries
 
     % --- Channel ---
     if strcmpi(params.channel, 'Cb')
-        channel = wmVideo(iFrame).Cb;
+        channel = double(wmVideo(iFrame).Cb);
     else
-        channel = wmVideo(iFrame).Cr;
+        channel = double(wmVideo(iFrame).Cr);
     end
 
     % --- Transform ---
@@ -71,11 +71,11 @@ for p = 1:numEntries
     % =====================================================
     % ? MATCH ORIGINAL RANGE-BASED EMBEDDING
     % =====================================================
-    if val_abs > (1 * params.embedFactor) && val_abs <= (10 * params.embedFactor)
+    if val_abs >= (0.5 * params.embedFactor) && val_abs <= (5.5 * params.embedFactor)
         bit = 0;
 
-    elseif val_abs > (10 * params.embedFactor) && ...
-           val_abs <= (20 * params.embedFactor)
+    elseif val_abs > (5.5 * params.embedFactor) && ...
+           val_abs <= (12 * params.embedFactor)
         bit = 1;
 
     else

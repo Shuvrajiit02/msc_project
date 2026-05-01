@@ -49,9 +49,9 @@ for p = 1:length(Pinfo)
 
     % Channel
     if strcmpi(params.channel, 'Cb')
-        channel = recoveredVideo(iFrame).Cb;
+        channel = double(recoveredVideo(iFrame).Cb);
     else
-        channel = recoveredVideo(iFrame).Cr;
+        channel = double(recoveredVideo(iFrame).Cr);
     end
 
     % Transforms
