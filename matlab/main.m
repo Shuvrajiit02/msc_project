@@ -104,7 +104,7 @@ ber = sum(watermarkBits(1:L) ~= extractedBits(1:L)) / L;
 fprintf('\n=== REVERSAL PHASE ===\n');
 
 recoveredVideo = reverseWatermark( ...
-    wmVideo, gopSize, params);
+    wmVideo, PinfoRecovered, params);
 fprintf('[INFO] Saving recovered frames...\n');
 saveFrames(recoveredVideo, '../frames/recovered');
 

@@ -1,31 +1,9 @@
-function recoveredVideo = reverseWatermark(wmVideo, gopSize, params)
+function recoveredVideo = reverseWatermark(wmVideo, Pinfo, params)
 
 fprintf('[Reverse] Starting reversal...\n');
 
 recoveredVideo = wmVideo;
 numFrames = length(wmVideo);
-
-% ---------------- Extract auxiliary bits ----------------
-auxBits = [];
-
-for f = 2:numFrames
-
-    if mod(f-1, gopSize) == 0
-        continue;
-    end
-
-    if isfield(wmVideo(f), 'mvx')
-
-        mvx = wmVideo(f).mvx;
-        mvy = wmVideo(f).mvy;
-
-        bits = extractHistogramMV(mvx, mvy);
-        auxBits = [auxBits bits];
-    end
-end
-
-% ---------------- Recover Pinfo ----------------
-Pinfo = deserializePinfo(auxBits);
 
 if isempty(Pinfo)
     warning('[Reverse] No Pinfo recovered.');
