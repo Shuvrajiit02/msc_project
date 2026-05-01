@@ -21,6 +21,8 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
         idx = idx + sync_len; % Move past sync word
         
         try
+            % ADD 8 BITS TO ENTRY SIZE
+            
             iFrameBits = reshape(bits(idx:idx+BITS_IFRAME-1), 1, []);
             idx = idx + BITS_IFRAME;
 
@@ -33,19 +35,29 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
             bitIdxBits = reshape(bits(idx:idx+BITS_BITIDX-1), 1, []);
             idx = idx + BITS_BITIDX;
 
-            iFrame   = bin2dec(char(iFrameBits + '0'));
-            block    = bin2dec(char(blockBits + '0'));
-            coeffIdx = bin2dec(char(coeffBits + '0'));
-            bitIdx   = bin2dec(char(bitIdxBits + '0'));
+            chkBits = reshape(bits(idx:idx+7), 1, []);
+            idx = idx + 8;
 
-            Pinfo(end+1).iFrame   = iFrame;
-            Pinfo(end).block      = block;
-            Pinfo(end).coeffIdx   = coeffIdx;
-            Pinfo(end).bitIdx     = bitIdx;
-            Pinfo(end).pFrame     = iFrame + 1;
+            % CHECKSUM VALIDATION
+            payload = [iFrameBits, blockBits, coeffBits, bitIdxBits];
+            chk_calc = mod(sum(payload), 256);
+            chk_read = sum(chkBits .* (2.^(7:-1:0)));
+
+            if chk_calc == chk_read
+                iFrame   = bin2dec(char(iFrameBits + '0'));
+                block    = bin2dec(char(blockBits + '0'));
+                coeffIdx = bin2dec(char(coeffBits + '0'));
+                bitIdx   = bin2dec(char(bitIdxBits + '0'));
+
+                Pinfo(end+1).iFrame   = iFrame;
+                Pinfo(end).block      = block;
+                Pinfo(end).coeffIdx   = coeffIdx;
+                Pinfo(end).bitIdx     = bitIdx;
+                Pinfo(end).pFrame     = iFrame + 1;
+            end
         catch
             % Failed to parse, just move forward by 1 bit to search for next sync word
-            idx = idx - entrySize + 1;
+            idx = idx - entrySize + 1 - 8;
             continue;
         end
     else
