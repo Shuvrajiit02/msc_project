@@ -24,11 +24,13 @@ echo "[✓] YUV created"
 # -----------------------------
 echo "[2/4] Running x264 (embedding MVs)..."
 
-./x264_modified/x264 \
+cd x264_modified
+./x264 \
 --input-res 352x288 \
 --fps 25 \
--o videos/encoded/watermarked.264 \
-videos/input/input.yuv
+-o ../videos/encoded/watermarked.264 \
+../videos/input/input.yuv
+cd ..
 
 echo "[✓] x264 encoding done"
 
