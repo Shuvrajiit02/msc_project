@@ -19,8 +19,8 @@ params.wavelet         = 'haar';
 params.dwtLevel        = 2;
 params.blockSize       = 4;
 params.embedFactor     = 5;
-params.nnzThreshold    = 5;
-params.energyThreshold = 15.0;
+params.nnzThreshold    = 1;
+params.energyThreshold = 0.5;
 params.channel         = 'Cb';
 params.verbose         = true;
 
