@@ -1,7 +1,7 @@
 function Pinfo = deserializePinfo(bits)
 
 BITS_IFRAME   = 12;
-BITS_BLOCK    = 12;
+BITS_BLOCK    = 13;
 BITS_COEFF    = 6;
 BITS_BITIDX   = 12;
 

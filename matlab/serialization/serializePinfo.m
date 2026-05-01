@@ -2,7 +2,7 @@ function bits = serializePinfo(Pinfo)
 
 % Fixed bit widths (adjust if needed)
 BITS_IFRAME   = 12;
-BITS_BLOCK    = 12;
+BITS_BLOCK    = 13;
 BITS_COEFF    = 6;
 BITS_BITIDX   = 12;
 
