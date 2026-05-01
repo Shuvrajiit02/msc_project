@@ -95,7 +95,8 @@ for p = 1:length(Pinfo)
     channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
 
     % Clamp
-    channelR = max(min(channelR, 1), 0);
+    channelR = min(max(channelR, 0), 255);
+    channelR = uint8(channelR);
 
     if strcmpi(params.channel, 'Cb')
         recoveredVideo(iFrame).Cb = channelR;

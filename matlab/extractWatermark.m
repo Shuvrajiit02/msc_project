@@ -71,11 +71,11 @@ for p = 1:numEntries
     % =====================================================
     % ? MATCH ORIGINAL RANGE-BASED EMBEDDING
     % =====================================================
-    if val_abs > 0 && val_abs <= (0.05 * params.embedFactor)
+    if val_abs > (1 * params.embedFactor) && val_abs <= (10 * params.embedFactor)
         bit = 0;
 
-    elseif val_abs > (0.05 * params.embedFactor) && ...
-           val_abs <= (0.1 * params.embedFactor)
+    elseif val_abs > (10 * params.embedFactor) && ...
+           val_abs <= (20 * params.embedFactor)
         bit = 1;
 
     else
