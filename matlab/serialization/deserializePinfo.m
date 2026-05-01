@@ -1,5 +1,7 @@
 function Pinfo = deserializePinfo(bits)
 
+bits = bits(:)'; % Ensure row vector for isequal matching
+
 BITS_IFRAME   = 12;
 BITS_BLOCK    = 13;
 BITS_COEFF    = 6;
