@@ -26,7 +26,8 @@ int main()
     // -------------------------------
     while (infile >> frame >> x >> y >> mvx >> mvy)
     {
-        mvx_list.push_back(mvx);
+        // Convert FFmpeg's quarter-pixel MVs back to full-pixel to match x264
+        mvx_list.push_back(mvx / 4);
     }
 
     infile.close();
