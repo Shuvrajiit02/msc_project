@@ -10,7 +10,8 @@ if isempty(Pinfo)
     return;
 end
 
-% ---------------- Reverse embedding ----------------
+THRESHOLD = 0.3;  % Must match extractWatermark.m
+
 for p = 1:length(Pinfo)
 
     try
@@ -21,13 +22,8 @@ for p = 1:length(Pinfo)
         continue;
     end
 
-    if iFrame < 1 || iFrame > numFrames
-        continue;
-    end
-
-    if blockID < 1 || coeffIdx < 1
-        continue;
-    end
+    if iFrame < 1 || iFrame > numFrames, continue; end
+    if blockID < 1 || coeffIdx < 1, continue; end
 
     % Channel
     if strcmpi(params.channel, 'Cb')
@@ -38,36 +34,34 @@ for p = 1:length(Pinfo)
 
     % Transforms
     [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
-    [LL2, LH2, HL2, HH2] = dwt2(LL1, params.wavelet);
+    [LL2, LH2, HL2, HH2] = dwt2(LL1,     params.wavelet);
     dctBand = dct2(LH2);
 
     blk = params.blockSize;
     [h, w] = size(dctBand);
     blocksPerRow = floor(w / blk);
 
-    if blocksPerRow == 0
-        continue;
-    end
+    if blocksPerRow == 0, continue; end
 
     bi = floor((blockID - 1) / blocksPerRow) * blk + 1;
-    bj = mod((blockID - 1), blocksPerRow) * blk + 1;
+    bj = mod  ((blockID - 1),  blocksPerRow) * blk + 1;
 
-    if bi+blk-1 > h || bj+blk-1 > w
-        continue;
-    end
+    if bi+blk-1 > h || bj+blk-1 > w, continue; end
 
     block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
 
-    if blockID < 1 || coeffIdx < 1 || coeffIdx > numel(block)
-        continue;
-    end
+    if coeffIdx > numel(block), continue; end
 
     val = block(coeffIdx);
 
-    % =====================================================
-    % ? REVERSE ORIGINAL MULTIPLICATIVE EMBEDDING
-    % =====================================================
-    block(coeffIdx) = val / params.embedFactor;
+    % QIM-inspired reversal (inverse of embedding)
+    if abs(val) < THRESHOLD
+        % Was bit=0: original was divided -> restore by multiplying
+        block(coeffIdx) = val * params.embedFactor;
+    else
+        % Was bit=1: original was multiplied -> restore by dividing
+        block(coeffIdx) = val / params.embedFactor;
+    end
 
     dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
 
@@ -76,7 +70,7 @@ for p = 1:length(Pinfo)
     LL1_rec  = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
     channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
 
-    % Clamp
+    channelR = channelR(1:size(channel,1), 1:size(channel,2));
     channelR = min(max(channelR, 0), 255);
     channelR = uint8(channelR);
 
