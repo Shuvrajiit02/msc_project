@@ -1,0 +1,5 @@
+gcc -o x264.exe  x264res.o x264.o autocomplete.o input/input.o input/timecode.o input/raw.o input/y4m.o output/raw.o output/matroska.o output/matroska_ebml.o output/flv.o output/flv_bytestream.o filters/filters.o filters/video/video.o filters/video/source.o filters/video/internal.o filters/video/resize.o filters/video/fix_vfr_pts.o filters/video/select_every.o filters/video/crop.o input/avs.o filters/video/cache-8.o filters/video/depth-8.o input/thread-8.o filters/video/cache-10.o filters/video/depth-10.o input/thread-10.o libx264.a -lshell32 -Wl,--image-base,0x140000000 -Wl,--start-group
+C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: missing --end-group; added as last command line option
+C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/16.1.0/../../../../x86_64-w64-mingw32/bin/ld.exe: libx264.a(me-10.o):me.c:(.data+0x0): multiple definition of `__emutls_v.wm_index'; libx264.a(me-8.o):me.c:(.data+0x0): first defined here
+collect2.exe: error: ld returned 1 exit status
+make: *** [Makefile:319: x264.exe] Error 1
