@@ -3198,6 +3198,13 @@ skip_analysis:
                 mb_analyse_intra( h, &analysis, i_cost );
 
             i_satd_inter = i_cost;
+
+            /* HYBRID WATERMARKING: Penalize Intra blocks in P-frames to prevent dropping motion vectors */
+            analysis.i_satd_i16x16 += 100000;
+            analysis.i_satd_i8x8   += 100000;
+            analysis.i_satd_i4x4   += 100000;
+            analysis.i_satd_pcm    += 100000;
+
             i_satd_intra = X264_MIN3( analysis.i_satd_i16x16,
                                       analysis.i_satd_i8x8,
                                       analysis.i_satd_i4x4 );

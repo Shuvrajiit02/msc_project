@@ -850,11 +850,12 @@ void x264_me_search_ref( x264_t *h, x264_me_t *m, int16_t (*mvc)[2], int i_mvc, 
         int peak = peakX;   // dynamic histogram peak
 
         // --- Step 1: EMBED FIRST ---
-        if( bmx == peak )
+        if( bmx == peak || bmx == peak + 1 )
         {
             if( bit == 1 )
                 bmx = peak + 1;
-            // bit 0 → keep as peak
+            else
+                bmx = peak; // bit 0 → force to peak
 
             wm_index++;
             embedded = 1;

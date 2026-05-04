@@ -29,6 +29,7 @@ cd x264_modified
 --input-res 352x288 \
 --fps 25 \
 --ref 1 \
+--threads 1 \
 --partitions none \
 --bframes 0 \
 --weightp 0 \
