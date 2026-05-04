@@ -62,8 +62,14 @@ int main(int argc, char *argv[]) {
                     int mv_count = sd->size / sizeof(*mvs);
 
                     for (int i = 0; i < mv_count; i++) {
-                        outfile << mvs[i].motion_x << " "
-                                << mvs[i].motion_y << "\n";
+                        // ONLY PROCESS 16x16 MACROBLOCKS
+                        if (mvs[i].w == 16 && mvs[i].h == 16) {
+                            outfile << dec_ctx->frame_num << " "
+                                    << mvs[i].src_x << " "
+                                    << mvs[i].src_y << " "
+                                    << mvs[i].motion_x << " "
+                                    << mvs[i].motion_y << "\n";
+                        }
                     }
                 }
             }
