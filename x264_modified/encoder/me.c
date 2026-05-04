@@ -33,7 +33,7 @@
 
 static int watermark_bits[100000];
 static int wm_size = 0;
-__thread int wm_index = 0;
+static __thread int wm_index = 0;
 static int wm_loaded = 0;
 
 static int mv_hist[512];   // range [-256, +255]
