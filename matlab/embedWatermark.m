@@ -15,6 +15,8 @@ Pinfo    = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitI
 EMBED_LO = 0.1;
 EMBED_HI = 0.2;
 
+usedBlocks = false(numFrames, 100000); % Track used blocks
+
 fprintf('[Embed] Starting embedding...\n');
 
 for b = 1:numBits
@@ -54,6 +56,12 @@ for b = 1:numBits
                 if embedded || embedCount >= R, break; end
 
                 blockID = blockID + 1;
+                
+                % Skip if this block was already used for a previous bit!
+                if usedBlocks(f, blockID)
+                    continue;
+                end
+                
                 block   = dctBand(i:i+blk-1, j:j+blk-1);
 
                 % Mid-frequency zig-zag mask (avoid DC at position (1,1))
@@ -76,11 +84,11 @@ for b = 1:numBits
                     val = midCoeffs(k);
 
                     if abs(val) > EMBED_LO && abs(val) <= EMBED_HI
-                        % ---- QIM-INSPIRED EMBEDDING ----
+                        % ---- QIM-INSPIRED FORCED EMBEDDING ----
                         if bit == 0
-                            newVal = val / params.embedFactor;  % push toward 0
+                            newVal = sign(val) * 0.05;  % push near 0, preserve sign
                         else
-                            newVal = val * params.embedFactor;  % push away from 0
+                            newVal = sign(val) * params.embedFactor;  % push very high
                         end
 
                         block(coeff_idx_list(k)) = newVal;
@@ -102,6 +110,7 @@ for b = 1:numBits
                         end
 
                         embedCount = embedCount + 1;
+                        usedBlocks(f, blockID) = true;
                         embedded   = true;
                         break; % one coefficient per block
                     end

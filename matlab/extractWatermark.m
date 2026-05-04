@@ -69,11 +69,11 @@ for p = 1:numEntries
     val_abs = abs(val);
 
     % =====================================================
-    % ? ROBUST EXTRACTION FOR QIM-INSPIRED METHOD
+    % ? ROBUST EXTRACTION FOR FORCED MAGNITUDE
     % =====================================================
-    % Bit 0 was divided, making it very close to 0.
-    % Bit 1 was multiplied, making it much larger.
-    threshold = 0.3; % Safe midpoint
+    % Bit 0 was forced to 0.05.
+    % Bit 1 was forced to params.embedFactor (e.g. 150).
+    threshold = params.embedFactor / 2; % Safe midpoint
     
     if val_abs < threshold
         bit = 0;

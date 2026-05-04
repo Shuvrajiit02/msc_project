@@ -65,16 +65,18 @@ for p = 1:length(Pinfo)
     val = block(coeffIdx);
 
     % =====================================================
-    % ? REVERSE QIM-INSPIRED EMBEDDING
+    % ? REVERSE FORCED MAGNITUDE EMBEDDING
     % =====================================================
-    threshold = 0.3;
+    % Since original was in (0.1, 0.2], we just restore to 0.15 * sign
+    % The 0.05 error in DCT domain vanishes completely in pixel rounding.
+    threshold = params.embedFactor / 2;
     
     if abs(val) < threshold
-        % It was bit=0 (divided), so we multiply to restore
-        block(coeffIdx) = val * params.embedFactor;
+        % Was bit=0 (0.05)
+        block(coeffIdx) = sign(val) * 0.15;
     else
-        % It was bit=1 (multiplied), so we divide to restore
-        block(coeffIdx) = val / params.embedFactor;
+        % Was bit=1 (150)
+        block(coeffIdx) = sign(val) * 0.15;
     end
 
     dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
