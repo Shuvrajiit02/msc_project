@@ -14,8 +14,8 @@ echo "[1/4] Converting frames to YUV..."
 
 ffmpeg -y -framerate 25 \
 -i frames/watermarked/frame_%04d.png \
--pix_fmt yuv420p \
-videos/input/input.yuv
+-pix_fmt yuv444p \
+videos/input/input.y4m
 
 echo "[✓] YUV created"
 
@@ -26,7 +26,6 @@ echo "[2/4] Running x264 (embedding MVs)..."
 
 cd x264_modified
 ./x264 \
---input-res 352x288 \
 --fps 25 \
 --ref 1 \
 --threads 1 \
@@ -38,8 +37,11 @@ cd x264_modified
 --no-cabac \
 --no-fast-pskip \
 --trellis 0 \
+--qp 0 \
+--output-csp i444 \
+--profile high444 \
 -o ../videos/encoded/watermarked.264 \
-../videos/input/input.yuv
+../videos/input/input.y4m
 cd ..
 
 echo "[✓] x264 encoding done"

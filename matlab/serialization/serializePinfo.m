@@ -12,15 +12,24 @@ for i = 1:length(Pinfo)
 
     sync_word = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]; % 16-bit sync word
 
+    % Convert single float to 32-bit uint32, then to 32 bits
+    origBits = dec2bin(typecast(single(Pinfo(i).origCoeff), 'uint32'), 32) - '0';
+
     payload = [ ...
         dec2bin(Pinfo(i).iFrame,  BITS_IFRAME) - '0', ...
         dec2bin(Pinfo(i).block,   BITS_BLOCK)  - '0', ...
         dec2bin(Pinfo(i).coeffIdx,BITS_COEFF)  - '0', ...
-        dec2bin(Pinfo(i).bitIdx,  BITS_BITIDX) - '0' ...
+        dec2bin(Pinfo(i).bitIdx,  BITS_BITIDX) - '0', ...
+        origBits ...
     ];
     
     chk = mod(sum(payload), 256);
     chk_bin = dec2bin(chk, 8) - '0';
+
+    % Make sure chk_bin is exactly 8 bits
+    if length(chk_bin) < 8
+        chk_bin = [zeros(1, 8 - length(chk_bin)), chk_bin];
+    end
 
     bits = [bits sync_word payload chk_bin];
 end

@@ -7,136 +7,100 @@ R       = params.redundancy;
 numBits = length(watermarkBits);
 
 embedLog = struct('iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {});
-Pinfo    = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {});
+Pinfo    = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {}, 'origCoeff', {});
 
-% QIM range: target coefficients in (EMBED_LO, EMBED_HI]
-%   bit=0 → divide by embedFactor → value shrinks to ~0 (H.264 snaps to 0)
-%   bit=1 → multiply by embedFactor → value grows to ~1.5-3 (survives quantisation)
 EMBED_LO = 0.1;
 EMBED_HI = 0.2;
 
 usedBlocks = false(numFrames, 100000); % Track used blocks
+bitEmbedCounts = zeros(numBits, 1);
 
 fprintf('[Embed] Starting embedding...\n');
 
-for b = 1:numBits
+% Process frame by frame
+for f = 1:numFrames
+    if mod(f-1, gopSize) ~= 0, continue; end
 
-    bit        = watermarkBits(b);
-    embedCount = 0;
+    if strcmpi(params.channel, 'Cb')
+        channel = double(video(f).Cb);
+    else
+        channel = double(video(f).Cr);
+    end
 
-    for f = 1:numFrames
+    [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
+    [LL2, LH2, HL2, HH2] = dwt2(LL1,     params.wavelet);
+    dctBand = dct2(LH2);
 
-        % Only I-frames (every gopSize-th frame, 1-indexed)
-        if mod(f-1, gopSize) ~= 0
-            continue;
-        end
+    blk = params.blockSize;
+    [h, w] = size(dctBand);
+    blockID = 0;
 
-        % ---------------- GET CHANNEL ----------------
-        if strcmpi(params.channel, 'Cb')
-            channel = double(wmVideo(f).Cb);
-        else
-            channel = double(wmVideo(f).Cr);
-        end
+    % Try to embed bits into this frame
+    for i = 1:blk:h-blk+1
+        for j = 1:blk:w-blk+1
+            blockID = blockID + 1;
+            
+            % Find a bit that still needs embedding
+            targetBitIdx = find(bitEmbedCounts < R, 1);
+            if isempty(targetBitIdx), break; end
+            
+            bit = watermarkBits(targetBitIdx);
+            
+            block = dctBand(i:i+blk-1, j:j+blk-1);
+            midMask = [0 1 1 0; 1 1 1 0; 1 1 0 0; 0 0 0 0];
+            coeff_idx_list = find(midMask == 1);
+            midCoeffs = block(coeff_idx_list);
 
-        % ---------------- DWT (2 levels) ----------------
-        [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
-        [LL2, LH2, HL2, HH2] = dwt2(LL1,     params.wavelet);
+            if nnz(midCoeffs) < params.nnzThreshold || sum(abs(midCoeffs)) < params.energyThreshold
+                continue;
+            end
 
-        % ---------------- DCT on LH2 sub-band ----------------
-        dctBand = dct2(LH2);
+            for k = 1:length(coeff_idx_list)
+                val = midCoeffs(k);
+                if abs(val) > EMBED_LO && abs(val) <= EMBED_HI
+                    if bit == 0, newVal = sign(val) * 0.05;
+                    else, newVal = sign(val) * params.embedFactor; end
 
-        blk = params.blockSize;
-        [h, w] = size(dctBand);
-        blockID  = 0;
-        embedded = false;
+                    block(coeff_idx_list(k)) = newVal;
+                    dctBand(i:i+blk-1, j:j+blk-1) = block;
 
-        for i = 1:blk:h-blk+1
-            if embedded || embedCount >= R, break; end
-            for j = 1:blk:w-blk+1
-                if embedded || embedCount >= R, break; end
+                    embedLog(end+1).iFrame = f;
+                    embedLog(end).block = blockID;
+                    embedLog(end).coeffIdx = coeff_idx_list(k);
+                    embedLog(end).bitIdx = targetBitIdx;
 
-                blockID = blockID + 1;
-                
-                % Skip if this block was already used for a previous bit!
-                if usedBlocks(f, blockID)
-                    continue;
-                end
-                
-                block   = dctBand(i:i+blk-1, j:j+blk-1);
-
-                % Mid-frequency zig-zag mask (avoid DC at position (1,1))
-                midMask = [0 1 1 0;
-                           1 1 1 0;
-                           1 1 0 0;
-                           0 0 0 0];
-
-                coeff_idx_list = find(midMask == 1);
-                midCoeffs      = block(coeff_idx_list);
-
-                % Texture gate: skip blocks that are too flat
-                if nnz(midCoeffs) < params.nnzThreshold || ...
-                   sum(abs(midCoeffs)) < params.energyThreshold
-                    continue;
-                end
-
-                % Find first coefficient in QIM-eligible range
-                for k = 1:length(coeff_idx_list)
-                    val = midCoeffs(k);
-
-                    if abs(val) > EMBED_LO && abs(val) <= EMBED_HI
-                        % ---- QIM-INSPIRED FORCED EMBEDDING ----
-                        if bit == 0
-                            newVal = sign(val) * 0.05;  % push near 0, preserve sign
-                        else
-                            newVal = sign(val) * params.embedFactor;  % push very high
-                        end
-
-                        block(coeff_idx_list(k)) = newVal;
-                        dctBand(i:i+blk-1, j:j+blk-1) = block;
-
-                        % Logging
-                        embedLog(end+1).iFrame  = f;
-                        embedLog(end).block     = blockID;
-                        embedLog(end).coeffIdx  = coeff_idx_list(k);
-                        embedLog(end).bitIdx    = b;
-
-                        % Pinfo for aux-channel transport (MV histogram)
-                        if f + 1 <= numFrames
-                            Pinfo(end+1).pFrame  = f + 1;
-                            Pinfo(end).iFrame    = f;
-                            Pinfo(end).block     = blockID;
-                            Pinfo(end).coeffIdx  = coeff_idx_list(k);
-                            Pinfo(end).bitIdx    = b;
-                        end
-
-                        embedCount = embedCount + 1;
-                        usedBlocks(f, blockID) = true;
-                        embedded   = true;
-                        break; % one coefficient per block
+                    if f + 1 <= numFrames
+                        Pinfo(end+1).pFrame = f + 1;
+                        Pinfo(end).iFrame = f;
+                        Pinfo(end).block = blockID;
+                        Pinfo(end).coeffIdx = coeff_idx_list(k);
+                        Pinfo(end).bitIdx = targetBitIdx;
+                        Pinfo(end).origCoeff = single(val);
                     end
+
+                    bitEmbedCounts(targetBitIdx) = bitEmbedCounts(targetBitIdx) + 1;
+                    usedBlocks(f, blockID) = true;
+                    break;
                 end
             end
         end
+        if isempty(find(bitEmbedCounts < R, 1)), break; end
+    end
 
-        % ---------------- INVERSE TRANSFORMS ----------------
-        LH2_rec  = idct2(dctBand);
-        LL1_rec  = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
-        channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
-
-        % Crop to original size (DWT padding artefact)
-        channelR = channelR(1:size(channel,1), 1:size(channel,2));
-        channelR = min(max(channelR, 0), 255);
-        channelR = uint8(channelR);
-
-        % ---------------- SAVE BACK ----------------
-        if strcmpi(params.channel, 'Cb')
-            wmVideo(f).Cb = channelR;
-        else
-            wmVideo(f).Cr = channelR;
-        end
-
-    end % frame loop
-end % bit loop
+    % Inverse transform ONCE per frame
+    LH2_rec = idct2(dctBand);
+    LL1_rec = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
+    channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
+    
+    channelR = channelR(1:size(video(f).Cb, 1), 1:size(video(f).Cb, 2));
+    channelR = uint8(min(max(channelR, 0), 255));
+    
+    if strcmpi(params.channel, 'Cb')
+        wmVideo(f).Cb = channelR;
+    else
+        wmVideo(f).Cr = channelR;
+    end
+end
 
 fprintf('[Embed] Embedding complete. %d Pinfo entries generated.\n', length(Pinfo));
 

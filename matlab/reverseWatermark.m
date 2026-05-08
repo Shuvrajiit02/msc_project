@@ -10,33 +10,23 @@ if isempty(Pinfo)
     return;
 end
 
-% ---------------- Reverse embedding ----------------
-for p = 1:length(Pinfo)
+% Group Pinfo by frame for efficient/lossless processing
+uFrames = unique([Pinfo.iFrame]);
 
-    try
-        iFrame   = round(Pinfo(p).iFrame);
-        blockID  = round(Pinfo(p).block);
-        coeffIdx = round(Pinfo(p).coeffIdx);
-    catch
-        continue;
-    end
-
-    if iFrame < 1 || iFrame > numFrames
-        continue;
-    end
-
-    if blockID < 1 || coeffIdx < 1
-        continue;
-    end
-
-    % Channel
+for fIdx = 1:length(uFrames)
+    f = uFrames(fIdx);
+    
+    if f < 1 || f > numFrames, continue; end
+    
+    % Find all packets for this frame
+    framePackets = Pinfo([Pinfo.iFrame] == f);
+    
     if strcmpi(params.channel, 'Cb')
-        channel = double(recoveredVideo(iFrame).Cb);
+        channel = double(wmVideo(f).Cb);
     else
-        channel = double(recoveredVideo(iFrame).Cr);
+        channel = double(wmVideo(f).Cr);
     end
 
-    % Transforms
     [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
     [LL2, LH2, HL2, HH2] = dwt2(LL1, params.wavelet);
     dctBand = dct2(LH2);
@@ -44,58 +34,44 @@ for p = 1:length(Pinfo)
     blk = params.blockSize;
     [h, w] = size(dctBand);
     blocksPerRow = floor(w / blk);
+    if blocksPerRow == 0, continue; end
 
-    if blocksPerRow == 0
-        continue;
+    % Apply all restorations for this frame in one DCT pass
+    for p = 1:length(framePackets)
+        blockID  = round(framePackets(p).block);
+        coeffIdx = round(framePackets(p).coeffIdx);
+        
+        bi = floor((blockID - 1) / blocksPerRow) * blk + 1;
+        bj = mod((blockID - 1), blocksPerRow) * blk + 1;
+
+        if bi+blk-1 > h || bj+blk-1 > w || coeffIdx > blk*blk, continue; end
+
+        block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
+        
+        if isfield(framePackets(p), 'origCoeff')
+            block(coeffIdx) = double(framePackets(p).origCoeff);
+        else
+            val = block(coeffIdx);
+            threshold = params.embedFactor / 2;
+            block(coeffIdx) = sign(val) * 0.15;
+        end
+        
+        dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
     end
 
-    bi = floor((blockID - 1) / blocksPerRow) * blk + 1;
-    bj = mod((blockID - 1), blocksPerRow) * blk + 1;
-
-    if bi+blk-1 > h || bj+blk-1 > w
-        continue;
-    end
-
-    block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
-
-    if blockID < 1 || coeffIdx < 1 || coeffIdx > numel(block)
-        continue;
-    end
-
-    val = block(coeffIdx);
-
-    % =====================================================
-    % ? REVERSE FORCED MAGNITUDE EMBEDDING
-    % =====================================================
-    % Since original was in (0.1, 0.2], we just restore to 0.15 * sign
-    % The 0.05 error in DCT domain vanishes completely in pixel rounding.
-    threshold = params.embedFactor / 2;
-    
-    if abs(val) < threshold
-        % Was bit=0 (0.05)
-        block(coeffIdx) = sign(val) * 0.15;
-    else
-        % Was bit=1 (150)
-        block(coeffIdx) = sign(val) * 0.15;
-    end
-
-    dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
-
-    % Inverse transforms
-    LH2_rec  = idct2(dctBand);
-    LL1_rec  = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
+    % Inverse transform ONCE per frame
+    LH2_rec = idct2(dctBand);
+    LL1_rec = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
     channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
-
-    % Clamp
-    channelR = min(max(channelR, 0), 255);
-    channelR = uint8(channelR);
-
+    
+    channelR = channelR(1:size(wmVideo(f).Cb, 1), 1:size(wmVideo(f).Cb, 2));
+    channelR = uint8(min(max(channelR, 0), 255));
+    
     if strcmpi(params.channel, 'Cb')
-        recoveredVideo(iFrame).Cb = channelR;
+        recoveredVideo(f).Cb = channelR;
     else
-        recoveredVideo(iFrame).Cr = channelR;
+        recoveredVideo(f).Cr = channelR;
     end
-
 end
 
 fprintf('[Reverse] Reversal complete.\n');
