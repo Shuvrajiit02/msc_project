@@ -2,12 +2,12 @@ function Pinfo = deserializePinfo(bits)
 
 bits = bits(:)'; % Ensure row vector for isequal matching
 
-BITS_IFRAME   = 12;
-BITS_BLOCK    = 13;
+BITS_IFRAME   = 9;
+BITS_BLOCK    = 9;
 BITS_COEFF    = 6;
-BITS_BITIDX   = 12;
+BITS_BITIDX   = 10;
 
-entrySize = BITS_IFRAME + BITS_BLOCK + BITS_COEFF + BITS_BITIDX + 32;
+entrySize = BITS_IFRAME + BITS_BLOCK + BITS_COEFF + BITS_BITIDX + 64;
 
 Pinfo = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {}, 'origCoeff', {});
 
@@ -33,14 +33,17 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
             bitIdxBits = reshape(bits(idx:idx+BITS_BITIDX-1), 1, []);
             idx = idx + BITS_BITIDX;
             
-            origBits = reshape(bits(idx:idx+31), 1, []);
+            origBits1 = reshape(bits(idx:idx+31), 1, []);
+            idx = idx + 32;
+            
+            origBits2 = reshape(bits(idx:idx+31), 1, []);
             idx = idx + 32;
 
             chkBits = reshape(bits(idx:idx+7), 1, []);
             idx = idx + 8;
 
             % CHECKSUM VALIDATION
-            payload = [iFrameBits, blockBits, coeffBits, bitIdxBits, origBits];
+            payload = [iFrameBits, blockBits, coeffBits, bitIdxBits, origBits1, origBits2];
             chk_calc = mod(sum(payload), 256);
             chk_read = sum(chkBits .* (2.^(7:-1:0)));
 
@@ -50,7 +53,9 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
                 coeffIdx = bin2dec(char(coeffBits + '0'));
                 bitIdx   = bin2dec(char(bitIdxBits + '0'));
                 
-                origFloat = typecast(uint32(bin2dec(char(origBits + '0'))), 'single');
+                u32_1 = uint32(bin2dec(char(origBits1 + '0')));
+                u32_2 = uint32(bin2dec(char(origBits2 + '0')));
+                origFloat = typecast([u32_1, u32_2], 'double');
 
                 Pinfo(end+1).iFrame   = iFrame;
                 Pinfo(end).block      = block;

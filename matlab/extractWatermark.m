@@ -2,91 +2,60 @@ function finalBits = extractWatermark(wmVideo, Pinfo, gopSize, params)
 
 fprintf('[Extract] Starting extraction...\n');
 
-numEntries = length(Pinfo);
-
-rawBits   = [];
-rawBitIdx = [];
-
-for p = 1:numEntries
-
-    % --- Safe read ---
-    try
-        iFrame   = round(Pinfo(p).iFrame);
-        blockID  = round(Pinfo(p).block);
-        coeffIdx = round(Pinfo(p).coeffIdx);
-        bitIdx   = round(Pinfo(p).bitIdx);
-    catch
-        continue;
-    end
-
-    % --- Validation ---
-    if isempty(iFrame) || numel(iFrame) ~= 1
-        continue;
-    end
-
-    if iFrame < 1 || iFrame > length(wmVideo)
-        continue;
-    end
-
-    if blockID < 1 || coeffIdx < 1
-        continue;
-    end
-
-    % --- Channel ---
-    if strcmpi(params.channel, 'Cb')
-        channel = double(wmVideo(iFrame).Cb);
-    else
-        channel = double(wmVideo(iFrame).Cr);
-    end
-
-    % --- Transform ---
-    [LL1, ~, ~, ~] = dwt2(channel, params.wavelet);
-    [~, LH2, ~, ~] = dwt2(LL1, params.wavelet);
-    dctBand = dct2(LH2);
-
-    blk = params.blockSize;
-    [h, w] = size(dctBand);
-    blocksPerRow = floor(w / blk);
-
-    if blocksPerRow == 0
-        continue;
-    end
-
-    bi = floor((blockID - 1) / blocksPerRow) * blk + 1;
-    bj = mod((blockID - 1), blocksPerRow) * blk + 1;
-
-    if bi+blk-1 > h || bj+blk-1 > w
-        continue;
-    end
-
-    block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
-
-    if coeffIdx > numel(block)
-        continue;
-    end
-
-    val = block(coeffIdx);
-    val_abs = abs(val);
-
-    % =====================================================
-    % ? ROBUST EXTRACTION FOR FORCED MAGNITUDE
-    % =====================================================
-    % Bit 0 was forced to 0.05.
-    % Bit 1 was forced to params.embedFactor (e.g. 150).
-    threshold = params.embedFactor / 2; % Safe midpoint
-    
-    if val_abs < threshold
-        bit = 0;
-    else
-        bit = 1;
-    end
-
-    rawBits(end+1)   = bit;
-    rawBitIdx(end+1) = bitIdx;
-
+if isempty(Pinfo)
+    finalBits = [];
+    fprintf('[Extract] No valid bits extracted.\n');
+    return;
 end
 
-% ---------------- Majority Voting ----------------
+numBits = max([Pinfo.bitIdx]);
+rawBits = [];
+rawBitIdx = [];
+
+uFrames = unique([Pinfo.iFrame]);
+
+for fIdx = 1:length(uFrames)
+    f = uFrames(fIdx);
+    
+    if strcmpi(params.channel, 'Cb')
+        channel = double(wmVideo(f).Cb);
+    else
+        channel = double(wmVideo(f).Cr);
+    end
+    
+    LS = liftwave(params.wavelet, 'Int2Int');
+    [CA1, CH1, CV1, CD1] = lwt2(channel, LS);
+    [CA2, CH2, CV2, CD2] = lwt2(CA1, LS);
+    dctBand = CH2;
+    
+    framePackets = Pinfo([Pinfo.iFrame] == f);
+    
+    for p = 1:length(framePackets)
+        blockID = framePackets(p).block;
+        coeffIdx = framePackets(p).coeffIdx;
+        bitIdx = framePackets(p).bitIdx;
+        
+        blk = params.blockSize;
+        [h, w] = size(dctBand);
+        
+        r = floor((blockID - 1) / floor(w/blk)) * blk + 1;
+        c = mod(blockID - 1, floor(w/blk)) * blk + 1;
+        
+        block = dctBand(r:r+blk-1, c:c+blk-1);
+        
+        val = block(coeffIdx);
+        
+        if abs(val) > params.embedFactor / 2
+            bit = 1;
+        else
+            bit = 0;
+        end
+        
+        rawBits(end+1) = bit;
+        rawBitIdx(end+1) = bitIdx;
+    end
+end
+
 if isempty(rawBitIdx)
     finalBits = [];
     fprintf('[Extract] No valid bits extracted.\n');

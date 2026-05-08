@@ -27,42 +27,54 @@ for fIdx = 1:length(uFrames)
         channel = double(wmVideo(f).Cr);
     end
 
-    [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
-    [LL2, LH2, HL2, HH2] = dwt2(LL1, params.wavelet);
-    dctBand = dct2(LH2);
+    LS = liftwave(params.wavelet, 'Int2Int');
+    [CA1, CH1, CV1, CD1] = lwt2(channel, LS);
+    [CA2, CH2, CV2, CD2] = lwt2(CA1, LS);
+    dctBand = CH2; % Treat CH2 directly as the embedding band
 
-    blk = params.blockSize;
-    [h, w] = size(dctBand);
-    blocksPerRow = floor(w / blk);
-    if blocksPerRow == 0, continue; end
-
-    % Apply all restorations for this frame in one DCT pass
-    for p = 1:length(framePackets)
-        blockID  = round(framePackets(p).block);
-        coeffIdx = round(framePackets(p).coeffIdx);
-        
-        bi = floor((blockID - 1) / blocksPerRow) * blk + 1;
-        bj = mod((blockID - 1), blocksPerRow) * blk + 1;
-
-        if bi+blk-1 > h || bj+blk-1 > w || coeffIdx > blk*blk, continue; end
-
-        block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
-        
-        if isfield(framePackets(p), 'origCoeff')
-            block(coeffIdx) = double(framePackets(p).origCoeff);
-        else
-            val = block(coeffIdx);
-            threshold = params.embedFactor / 2;
-            block(coeffIdx) = sign(val) * 0.15;
-        end
-        
-        dctBand(bi:bi+blk-1, bj:bj+blk-1) = block;
+    % Get all packets for this frame
+    framePackets = Pinfo([Pinfo.iFrame] == f);
+    if isempty(framePackets)
+        % No packets -> no changes to reverse
+        recoveredVideo(f).Cb = wmVideo(f).Cb;
+        continue;
     end
 
-    % Inverse transform ONCE per frame
-    LH2_rec = idct2(dctBand);
-    LL1_rec = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
-    channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
+    % 2. Process all Pinfo for this frame
+    extractedBits = [];
+    for p = 1:length(framePackets)
+        blockID = framePackets(p).block;
+        coeffIdx = framePackets(p).coeffIdx;
+        
+        blk = params.blockSize;
+        [h, w] = size(dctBand);
+        
+        % Calculate block coordinates
+        r = floor((blockID - 1) / floor(w/blk)) * blk + 1;
+        c = mod(blockID - 1, floor(w/blk)) * blk + 1;
+        
+        block = dctBand(r:r+blk-1, c:c+blk-1);
+        
+        % Extract Bit (for PSNR validation if needed, though not doing actual BER here)
+        val = block(coeffIdx);
+        if abs(val) > params.embedFactor / 2
+            extractedBits(end+1) = 1;
+        else
+            extractedBits(end+1) = 0;
+        end
+        
+        % RESTORE EXACT ORIGINAL COEFFICIENT
+        if isfield(framePackets(p), 'origCoeff')
+            block(coeffIdx) = double(framePackets(p).origCoeff);
+        end
+        
+        dctBand(r:r+blk-1, c:c+blk-1) = block;
+    end
+
+    % 3. Inverse transform ONCE per frame
+    CH2_rec = dctBand;
+    CA1_rec = ilwt2(CA2, CH2_rec, CV2, CD2, LS);
+    channelR = ilwt2(CA1_rec, CH1, CV1, CD1, LS);
     
     channelR = channelR(1:size(wmVideo(f).Cb, 1), 1:size(wmVideo(f).Cb, 2));
     channelR = uint8(min(max(channelR, 0), 255));

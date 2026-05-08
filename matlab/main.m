@@ -25,7 +25,7 @@ params.channel         = 'Cb';
 params.verbose         = true;
 
 params.searchRange = 8;
-params.redundancy  = 5;
+params.redundancy  = 4;
 
 gopSize   = 10;
 numFrames = Inf;

@@ -9,8 +9,8 @@ numBits = length(watermarkBits);
 embedLog = struct('iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {});
 Pinfo    = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {}, 'origCoeff', {});
 
-EMBED_LO = 0.1;
-EMBED_HI = 0.2;
+EMBED_LO = 0;
+EMBED_HI = 50;
 
 usedBlocks = false(numFrames, 100000); % Track used blocks
 bitEmbedCounts = zeros(numBits, 1);
@@ -27,9 +27,10 @@ for f = 1:numFrames
         channel = double(video(f).Cr);
     end
 
-    [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
-    [LL2, LH2, HL2, HH2] = dwt2(LL1,     params.wavelet);
-    dctBand = dct2(LH2);
+    LS = liftwave(params.wavelet, 'Int2Int');
+    [CA1, CH1, CV1, CD1] = lwt2(channel, LS);
+    [CA2, CH2, CV2, CD2] = lwt2(CA1, LS);
+    dctBand = CH2; % Keep variable name for minimal code changes
 
     blk = params.blockSize;
     [h, w] = size(dctBand);
@@ -58,12 +59,29 @@ for f = 1:numFrames
             for k = 1:length(coeff_idx_list)
                 val = midCoeffs(k);
                 if abs(val) > EMBED_LO && abs(val) <= EMBED_HI
-                    if bit == 0, newVal = sign(val) * 0.05;
+                    % Integer embedding
+                    if bit == 0, newVal = sign(val) * 5;
                     else, newVal = sign(val) * params.embedFactor; end
+                    
+                    % Let's do it safely:
+                    block_test = block;
+                    block_test(coeff_idx_list(k)) = round(newVal);
+                    dctBand(i:i+blk-1, j:j+blk-1) = block_test;
+                    
+                    % Check for clipping
+                    CH2_test = dctBand;
+                    CA1_test = ilwt2(CA2, CH2_test, CV2, CD2, LS);
+                    channelR_test = ilwt2(CA1_test, CH1, CV1, CD1, LS);
+                    channelR_test = channelR_test(1:size(video(f).Cb, 1), 1:size(video(f).Cb, 2));
+                    
+                    if any(channelR_test(:) < 0) || any(channelR_test(:) > 255)
+                        % Revert
+                        dctBand(i:i+blk-1, j:j+blk-1) = block;
+                        continue; 
+                    end
 
-                    block(coeff_idx_list(k)) = newVal;
-                    dctBand(i:i+blk-1, j:j+blk-1) = block;
-
+                    % If safe, commit
+                    block = block_test;
                     embedLog(end+1).iFrame = f;
                     embedLog(end).block = blockID;
                     embedLog(end).coeffIdx = coeff_idx_list(k);
@@ -75,7 +93,7 @@ for f = 1:numFrames
                         Pinfo(end).block = blockID;
                         Pinfo(end).coeffIdx = coeff_idx_list(k);
                         Pinfo(end).bitIdx = targetBitIdx;
-                        Pinfo(end).origCoeff = single(val);
+                        Pinfo(end).origCoeff = double(val); % Still use double for safety, though it's int
                     end
 
                     bitEmbedCounts(targetBitIdx) = bitEmbedCounts(targetBitIdx) + 1;
@@ -88,9 +106,9 @@ for f = 1:numFrames
     end
 
     % Inverse transform ONCE per frame
-    LH2_rec = idct2(dctBand);
-    LL1_rec = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
-    channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
+    CH2_rec = dctBand;
+    CA1_rec = ilwt2(CA2, CH2_rec, CV2, CD2, LS);
+    channelR = ilwt2(CA1_rec, CH1, CV1, CD1, LS);
     
     channelR = channelR(1:size(video(f).Cb, 1), 1:size(video(f).Cb, 2));
     channelR = uint8(min(max(channelR, 0), 255));
