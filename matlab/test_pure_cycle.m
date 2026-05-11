@@ -1,17 +1,18 @@
 clc; clear;
 
-channel = randi([0, 255], 352, 288, 'uint8');
-channel_d = double(channel);
+channel = double(randi([0 255], 256, 256));
+ls = liftwave('haar', 'Int2Int');
 
-[LL1, LH1, HL1, HH1] = dwt2(channel_d, 'haar');
-[LL2, LH2, HL2, HH2] = dwt2(LL1, 'haar');
-dctBand = dct2(LH2);
+[LL1, LH1, HL1, HH1] = lwt2(channel, ls);
+[LL2, LH2, HL2, HH2] = lwt2(LL1, ls);
 
-LH2_rec  = idct2(dctBand);
-LL1_rec  = idwt2(LL2, LH2_rec, HL2, HH2, 'haar');
-channelR = idwt2(LL1_rec, LH1, HL1, HH1, 'haar');
+LL1_rec = ilwt2(LL2, LH2, HL2, HH2, ls);
+channelR = ilwt2(LL1_rec, LH1, HL1, HH1, ls);
 
-channelR_uint8 = uint8(min(max(channelR, 0), 255));
+mse = mean((channel(:) - channelR(:)).^2);
+fprintf('Cycle MSE: %e\n', mse);
 
-mse_val = immse(channel, channelR_uint8);
-disp(['MSE of pure transform cycle: ', num2str(mse_val)]);
+block = randi([-100 100], 4, 4);
+ib = intidct4(intdct4(block));
+mse_dct = mean((block(:) - ib(:)).^2);
+fprintf('DCT MSE: %e\n', mse_dct);

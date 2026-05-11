@@ -12,8 +12,8 @@ for i = 1:length(Pinfo)
 
     sync_word = [1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0]; % 16-bit sync word
 
-    % Convert single float to 32-bit uint32, then to 32 bits
-    origBits = dec2bin(typecast(single(Pinfo(i).origCoeff), 'uint32'), 32) - '0';
+    % Convert int16 to 16 bits
+    origBits = dec2bin(typecast(int16(Pinfo(i).origCoeff), 'uint16'), 16) - '0';
 
     payload = [ ...
         dec2bin(Pinfo(i).iFrame,  BITS_IFRAME) - '0', ...

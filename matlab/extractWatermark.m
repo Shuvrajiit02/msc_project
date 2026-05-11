@@ -39,13 +39,15 @@ for p = 1:numEntries
         channel = double(wmVideo(iFrame).Cr);
     end
 
+    % --- Setup Lifting Scheme for IWT ---
+    ls = liftwave(params.wavelet, 'Int2Int');
+
     % --- Transform ---
-    [LL1, ~, ~, ~] = dwt2(channel, params.wavelet);
-    [~, LH2, ~, ~] = dwt2(LL1, params.wavelet);
-    dctBand = dct2(LH2);
+    [LL1, ~, ~, ~] = lwt2(channel, ls);
+    [~, LH2, ~, ~] = lwt2(LL1, ls);
 
     blk = params.blockSize;
-    [h, w] = size(dctBand);
+    [h, w] = size(LH2);
     blocksPerRow = floor(w / blk);
 
     if blocksPerRow == 0
@@ -59,13 +61,15 @@ for p = 1:numEntries
         continue;
     end
 
-    block = dctBand(bi:bi+blk-1, bj:bj+blk-1);
+    % Get block and apply Integer DCT to extract
+    curr_block = LH2(bi:bi+blk-1, bj:bj+blk-1);
+    block_dct = intdct4(curr_block);
 
-    if coeffIdx > numel(block)
+    if coeffIdx > numel(block_dct)
         continue;
     end
 
-    val = block(coeffIdx);
+    val = block_dct(coeffIdx);
     val_abs = abs(val);
 
     % =====================================================

@@ -9,8 +9,8 @@ numBits = length(watermarkBits);
 embedLog = struct('iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {});
 Pinfo    = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {}, 'origCoeff', {});
 
-EMBED_LO = 0.1;
-EMBED_HI = 0.2;
+EMBED_LO = 5;
+EMBED_HI = 1000;
 
 usedBlocks = false(numFrames, 100000); % Track used blocks
 bitEmbedCounts = zeros(numBits, 1);
@@ -27,12 +27,16 @@ for f = 1:numFrames
         channel = double(video(f).Cr);
     end
 
-    [LL1, LH1, HL1, HH1] = dwt2(channel, params.wavelet);
-    [LL2, LH2, HL2, HH2] = dwt2(LL1,     params.wavelet);
-    dctBand = dct2(LH2);
+    % Setup Lifting Scheme for IWT
+    ls = liftwave(params.wavelet, 'Int2Int');
+
+    [LL1, LH1, HL1, HH1] = lwt2(channel, ls);
+    [LL2, LH2, HL2, HH2] = lwt2(LL1,     ls);
+    
+    LH2_rec = LH2; % We will modify this
 
     blk = params.blockSize;
-    [h, w] = size(dctBand);
+    [h, w] = size(LH2);
     blockID = 0;
 
     % Try to embed bits into this frame
@@ -46,7 +50,10 @@ for f = 1:numFrames
             
             bit = watermarkBits(targetBitIdx);
             
-            block = dctBand(i:i+blk-1, j:j+blk-1);
+            % Get block and apply Integer DCT
+            orig_block = LH2(i:i+blk-1, j:j+blk-1);
+            block = intdct4(orig_block);
+            
             midMask = [0 1 1 0; 1 1 1 0; 1 1 0 0; 0 0 0 0];
             coeff_idx_list = find(midMask == 1);
             midCoeffs = block(coeff_idx_list);
@@ -58,11 +65,13 @@ for f = 1:numFrames
             for k = 1:length(coeff_idx_list)
                 val = midCoeffs(k);
                 if abs(val) > EMBED_LO && abs(val) <= EMBED_HI
-                    if bit == 0, newVal = sign(val) * 0.05;
+                    if bit == 0, newVal = sign(val) * 0; % Force to zero for bit 0
                     else, newVal = sign(val) * params.embedFactor; end
 
                     block(coeff_idx_list(k)) = newVal;
-                    dctBand(i:i+blk-1, j:j+blk-1) = block;
+                    
+                    % Inverse Integer DCT and update LH2_rec
+                    LH2_rec(i:i+blk-1, j:j+blk-1) = intidct4(block);
 
                     embedLog(end+1).iFrame = f;
                     embedLog(end).block = blockID;
@@ -75,7 +84,7 @@ for f = 1:numFrames
                         Pinfo(end).block = blockID;
                         Pinfo(end).coeffIdx = coeff_idx_list(k);
                         Pinfo(end).bitIdx = targetBitIdx;
-                        Pinfo(end).origCoeff = single(val);
+                        Pinfo(end).origCoeff = int16(val); % Store as 16-bit integer
                     end
 
                     bitEmbedCounts(targetBitIdx) = bitEmbedCounts(targetBitIdx) + 1;
@@ -88,11 +97,10 @@ for f = 1:numFrames
     end
 
     % Inverse transform ONCE per frame
-    LH2_rec = idct2(dctBand);
-    LL1_rec = idwt2(LL2, LH2_rec, HL2, HH2, params.wavelet);
-    channelR = idwt2(LL1_rec, LH1, HL1, HH1, params.wavelet);
+    LL1_rec = ilwt2(LL2, LH2_rec, HL2, HH2, ls);
+    channelR = ilwt2(LL1_rec, LH1, HL1, HH1, ls);
     
-    channelR = channelR(1:size(video(f).Cb, 1), 1:size(video(f).Cb, 2));
+    % Ensure uint8 and clipping for safety (though IWT should preserve range if no overflow)
     channelR = uint8(min(max(channelR, 0), 255));
     
     if strcmpi(params.channel, 'Cb')

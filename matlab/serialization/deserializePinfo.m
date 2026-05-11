@@ -7,7 +7,7 @@ BITS_BLOCK    = 13;
 BITS_COEFF    = 6;
 BITS_BITIDX   = 12;
 
-entrySize = BITS_IFRAME + BITS_BLOCK + BITS_COEFF + BITS_BITIDX + 32;
+entrySize = BITS_IFRAME + BITS_BLOCK + BITS_COEFF + BITS_BITIDX + 16;
 
 Pinfo = struct('pFrame', {}, 'iFrame', {}, 'block', {}, 'coeffIdx', {}, 'bitIdx', {}, 'origCoeff', {});
 
@@ -33,8 +33,8 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
             bitIdxBits = reshape(bits(idx:idx+BITS_BITIDX-1), 1, []);
             idx = idx + BITS_BITIDX;
             
-            origBits = reshape(bits(idx:idx+31), 1, []);
-            idx = idx + 32;
+            origBits = reshape(bits(idx:idx+15), 1, []);
+            idx = idx + 16;
 
             chkBits = reshape(bits(idx:idx+7), 1, []);
             idx = idx + 8;
@@ -50,13 +50,13 @@ while idx <= length(bits) - (sync_len + entrySize) + 1
                 coeffIdx = bin2dec(char(coeffBits + '0'));
                 bitIdx   = bin2dec(char(bitIdxBits + '0'));
                 
-                origFloat = typecast(uint32(bin2dec(char(origBits + '0'))), 'single');
+                origInt = typecast(uint16(bin2dec(char(origBits + '0'))), 'int16');
 
                 Pinfo(end+1).iFrame   = iFrame;
                 Pinfo(end).block      = block;
                 Pinfo(end).coeffIdx   = coeffIdx;
                 Pinfo(end).bitIdx     = bitIdx;
-                Pinfo(end).origCoeff  = origFloat;
+                Pinfo(end).origCoeff  = double(origInt);
                 Pinfo(end).pFrame     = iFrame + 1;
             end
         catch
